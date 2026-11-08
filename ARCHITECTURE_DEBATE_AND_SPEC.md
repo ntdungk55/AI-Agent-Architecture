@@ -303,3 +303,14 @@ flowchart TB
 [PHỤ TRỢ A - NGOÀI LÕI] extensions/external_coding_tools (AST / LSP / Repo Graph MCP)
 =====================================================================================
 ```
+
+
+---
+
+# PHẦN III: PHASE 3 DEBATE — KHÓA CHẶT CÁC NHƯỢC ĐIỂM, RỦI RO CỐT LÕI (`RISK-01..08`) & RỦI RO THỨ CẤP (`SEC-RISK-01..06`) (4 ROUNDS ➔ `[CONSENSUS_REACHED]`)
+
+Toàn bộ phân tích chi tiết đã được chuẩn hóa và lưu tại [ARCHITECTURE_RISK_AND_TRADEOFF_REPORT.md](file:///d:/AI%20Agent%20Architecture/ARCHITECTURE_RISK_AND_TRADEOFF_REPORT.md):
+- **Round 1/5 (`87b52c4`):** Đề xuất 6 cơ chế giảm thiểu cho `RISK-01..08` và phát hiện 6 rủi ro thứ cấp (`SEC-RISK-01..06`) cùng Bảng điều kiện hạ cấp (`Downgrade / Fallback Matrix`).
+- **Round 2/5 (`684f1a6`):** Khóa chặt `SHADOW_STAGING` độc lập với `AuthorizedWriteSet` & `InputManifest`, `StatusProbeSpec` 4 trạng thái + Single-Writer Saga Lease, Streaming DLP mặc định hủy raw output, phân loại Preset `REPO_CODE_EXECUTION` cho `pytest`, bảo toàn `ProvenanceLineage` và Handle-walk đa nền tảng (`openat2` / `FILE_FLAG_OPEN_REPARSE_POINT` + `FileId`).
+- **Round 3/5 (`4693da8`):** Tinh chỉnh 4 chi tiết kỹ thuật cuối: `empty_gitconfig_file` cho `GIT_CONFIG_GLOBAL`/`SYSTEM`, ngữ nghĩa `fencing_token` (local single-owner vs external duplicate residual risk), `Discard + Best-Effort Zeroization`, và bộ 7 thành phần `Full-Context Scoped Approval Binding`.
+- **Round 4/5 (`[CONSENSUS_REACHED]`):** Codex CLI kiểm tra trực tiếp Git Commit `4693da8` và xác nhận đạt đồng thuận tuyệt đối (`[AGREED] ... [CONSENSUS_REACHED]`).
