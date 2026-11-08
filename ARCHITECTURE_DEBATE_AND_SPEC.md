@@ -314,3 +314,142 @@ Toàn bộ phân tích chi tiết đã được chuẩn hóa và lưu tại [ARC
 - **Round 2/5 (`684f1a6`):** Khóa chặt `SHADOW_STAGING` độc lập với `AuthorizedWriteSet` & `InputManifest`, `StatusProbeSpec` 4 trạng thái + Single-Writer Saga Lease, Streaming DLP mặc định hủy raw output, phân loại Preset `REPO_CODE_EXECUTION` cho `pytest`, bảo toàn `ProvenanceLineage` và Handle-walk đa nền tảng (`openat2` / `FILE_FLAG_OPEN_REPARSE_POINT` + `FileId`).
 - **Round 3/5 (`4693da8`):** Tinh chỉnh 4 chi tiết kỹ thuật cuối: `empty_gitconfig_file` cho `GIT_CONFIG_GLOBAL`/`SYSTEM`, ngữ nghĩa `fencing_token` (local single-owner vs external duplicate residual risk), `Discard + Best-Effort Zeroization`, và bộ 7 thành phần `Full-Context Scoped Approval Binding`.
 - **Round 4/5 (`[CONSENSUS_REACHED]`):** Codex CLI kiểm tra trực tiếp Git Commit `4693da8` và xác nhận đạt đồng thuận tuyệt đối (`[AGREED] ... [CONSENSUS_REACHED]`).
+
+
+---
+
+# PHẦN IV: PHASE 4 DEBATE — HOÀN THIỆN KIẾN TRÚC 6 MODULE CÒN LẠI (M1–M6) VÀ HỢP ĐỒNG XUYÊN MODULE (4 ROUNDS ➔ `[CONSENSUS_REACHED]`)
+
+Sau khi `Module 7 (runtime_governance)` được đặc tả chặt chẽ ở Phase 2 và Phase 3, Phase 4 tập trung giải quyết toàn diện các hợp đồng, ranh giới và máy trạng thái của **6 Module còn lại (M1–M6)**.
+
+## 1. Biên bản Tranh biện Phase 4 (Antigravity `[BUILDER]` ⟷ Codex CLI `[REVIEWER]`)
+
+### Vòng 1 (Phase 4 - Round 1)
+- **`[BUILDER]`:** Tự phát hiện và đề xuất giải quyết 6 lỗ hổng kiến trúc lớn của M1–M6:
+  - *G1 (Ranh giới M2/M4/M5):* M2 chỉ giữ instruction template có version; M5 lưu/truy xuất memory; M4 là chủ sở hữu duy nhất của `ContextWindow` với token allocation theo section.
+  - *G2 (Vòng điều khiển M3):* Event-sourced durable state machine với append-only `SessionControlLog`; ngân sách cứng phiên; loop detection.
+  - *G3 (M1 fallback & replay):* `LLMProviderPort` chuẩn hóa; fallback chỉ giữa các model cùng `capability_profile`; phân loại retry.
+  - *G4 (M5 write gate):* Phân 4 tầng nhớ (working, episodic, semantic, procedural); chặn tainted data ghi vào semantic/procedural nếu chưa xác minh.
+  - *G5 (M6 tool retrieval):* `ToolCatalog` có version; chọn tool theo ngữ cảnh và budget; kết quả lớn lưu artifact.
+  - *G6 (Hợp đồng shared):* Error envelope chung; telemetry trung lập; human channel qua M3.
+- **`[REVIEWER]` (Codex CLI):** Phản biện 9 điểm: Tách `SessionControlLog` (M3) khỏi `AuditLog` (M7); state machine cần sub-state bất định; 3 lớp ngân sách độc lập (M3 tổng - M4 lần gọi - M1 giới hạn model); phân biệt tuyệt đối instruction vs data; mở rộng `capability_profile`; quy trình ghi memory 2 pha; chọn tool chỉ là discovery; telemetry vs audit tách riêng; đổi `VERIFYING` thành `SELF_REVIEWING` (heuristic).
+- **Trạng thái:** `[CONTINUE]`
+
+### Vòng 2 (Phase 4 - Round 2)
+- **`[BUILDER]`:** Tiếp thu trọn vẹn 9 điểm, bổ sung 4 lỗ hổng mới: xử lý `ToolBatch` song song, ủy quyền sub-agent (không tạo module 8), tiến hóa schema event log bằng upcaster, và vị trí của Canonical Intermediate Representation (CIR).
+- **`[REVIEWER]` (Codex CLI):** Phản biện 7 điểm chuyên sâu: Resume không được suy diễn `INDETERMINATE` chỉ từ việc thiếu receipt; `ToolBatch` cần DAG và failure policy; `delegate_task` là M3-native control primitive nhưng capability phải do M7 cấp; không được pin policy suốt phiên; upcaster phải fail-closed; CIR cần phân tách Authority × Integrity × Confidentiality; crypto-erasure phải giữ được envelope để fold state.
+- **Trạng thái:** `[CONTINUE]`
+
+### Vòng 3 (Phase 4 - Round 3)
+- **`[BUILDER]`:** Chuẩn hóa: 4 trạng thái reconciliation khi resume; DAG cho `ToolBatch` dựa trên `AuthorizedResourceSet`; `delegate_task` là M3-native primitive với token phái sinh; dynamic policy re-check (`evaluation_policy_version` vs `current_enforcement_policy_version`); upcaster pure & fail-closed; CIR 3 chiều; crypto-erasure payload blob.
+- **`[REVIEWER]` (Codex CLI):** Khóa 5 điểm biên cuối cùng: 4 trạng thái reconciliation phải bao phủ cả terminal failure (`TERMINAL_WITH_RECEIPT`); delegation grant do M7 cấp, token do M7 xác minh tại mọi dispatch; lineage không thể suy đoán nhân quả mà phải tách 3 tập (`exposure_set`, `context_influence_set`, `claimed_citations`); input user phân loại theo typed segments (`UserDirectiveSegment`, `QuotedTextSegment`, ...) và fallback `MIXED_USER_CONTENT`; crypto-erasure phải đưa phiên vào `HALTED_CONTENT_ERASED` nếu thiếu dữ liệu để tiếp tục.
+- **Trạng thái:** `[CONTINUE]`
+
+### Vòng 4 (Phase 4 - Round 4 — ĐẠT ĐỒNG THUẬN HOÀN TOÀN)
+- **`[BUILDER]`:** Chốt chính xác 100% cả 5 điểm biên:
+  1. 4 trạng thái reconciliation: `AUTHORITATIVELY_NOT_DISPATCHED`, `TERMINAL_WITH_RECEIPT` (tách `dispatch_state` và `outcome_state`), `QUERY_PENDING`, `UNKNOWN_AMBIGUOUS`.
+  2. Delegation: M7 cấp `AuthorizedDelegationGrant`, composition root khởi tạo child session, token do M7 kiểm tra tại mọi dispatch.
+  3. Phân định rõ 3 tập lineage: `exposure_set` (audit), `context_influence_set` (taint propagation), `claimed_citations` (UI giải thích).
+  4. Typed segments cho user input, fallback an toàn `MIXED_USER_CONTENT` (kế thừa taint).
+  5. Envelope chuẩn, CAS append linearizable, randomized blob ID + keyed commitment, trạng thái `HALTED_CONTENT_ERASED` khi blob bị xóa.
+- **`[REVIEWER]` (Codex CLI):**
+  > `[AGREED] Năm blocker cuối đã được giải quyết đúng ranh giới trách nhiệm M3/M4/M7 và không làm phát sinh module lõi thứ tám... Kiến trúc hiện đã hoàn thiện hợp đồng cho M1–M6, giữ đúng 7 module lõi, đồng thời bảo toàn các bất biến Phase 2–3.`
+  > **Trạng thái lượt:** **`[CONSENSUS_REACHED]`**
+
+---
+
+## 2. Đặc tả Chi tiết Hợp đồng Toàn diện 7 Module Lõi (Consensus v4.0-complete)
+
+### 2.1. Module 1: `llm_manager` (Execution & Adapter Layer)
+- **Trách nhiệm:** Quản lý Model Registry, Key Pool (hạn mức, xoay vòng, cooldown, rate-limit), `EffectiveModelLimits` và Provider Adapters.
+- **`LLMProviderPort`:** Chuẩn hóa CIR thành provider-specific request. Trả về cấu trúc thống nhất: message deltas, tool-call intent, usage/cost, `finish_reason`.
+- **Nguyên tắc Fallback:** Chỉ fallback giữa các model cùng `capability_profile` (tool-calling version, JSON schema support, context length, streaming semantics). Chỉ fallback **trước** khi có token hiển thị ra ngoài hoặc phát lệnh tool; sau đó nếu lỗi phải trả `NeedsReplan` về cho M3.
+- **Reproducible Reconstruction:** Mỗi lời gọi sinh `ModelInvocationRecord` gắn với content-addressed input blob, adapter version, tool catalog digest, policy version và model snapshot.
+
+### 2.2. Module 2: `prompt_manager` (Instruction Artifact Repository)
+- **Trách nhiệm:** Quản lý các Instruction Templates có phiên bản (`SystemPrompt`, `AppRolePrompt`, `SkillTemplates`).
+- **Ranh giới:** Không truy xuất dữ liệu, không biết token budget, không chứa lịch sử hội thoại (lịch sử thuộc M3/M4).
+- **Phân cấp Chỉ dẫn:** Hỗ trợ quy tắc ưu tiên và phát hiện xung đột: `system_invariant > app_role > user_directive > session_skill`.
+
+### 2.3. Module 3: `orchestrator` (Durable Control Plane)
+- **Trách nhiệm:** Vòng điều khiển suy luận – hành động, quản lý phiên làm việc (`AgentSession`), ngân sách tổng (`SessionBudgetLedger`) và điều phối sub-agent.
+- **`SessionControlLog`:** Append-only log với CAS append trên `expected_seq` (bảo đảm linearizable write). State của phiên là kết quả fold(events).
+- **Composite State Machine:**
+  - Top-level: `IDLE → PLANNING → ACTING → OBSERVING → SELF_REVIEWING → FINALIZING → DONE | FAILED | HALTED`.
+  - Trong `ACTING`: M3 theo dõi `ToolInvocationSubstate` do M7 công bố (`PREPARED → AWAITING_APPROVAL → AUTHORIZED → DISPATCHED → TERMINAL`).
+- **Quản lý Sub-agent (Delegation):** Coi sub-agent là M3-native control primitive (không qua M7 như executable tool). M3 gửi `DelegationRequest` → M7 cấp `AuthorizedDelegationGrant` → Composition root tạo child session với budget escrow từ cha. Con cần vượt quyền thì chuyển `CHILD_AWAITING_PARENT_APPROVAL`.
+- **Khôi phục sự cố (Reconciliation):** Khi resume mà intent chưa có observation, M3 đối soát với M7 theo 4 trạng thái (`AUTHORITATIVELY_NOT_DISPATCHED`, `TERMINAL_WITH_RECEIPT`, `QUERY_PENDING`, `UNKNOWN_AMBIGUOUS`).
+
+### 2.4. Module 4: `context_manager` (Context Assembly & Token Budgeting)
+- **Trách nhiệm:** Lắp ráp `ContextWindow`, phân bổ token theo `ContextManifest` phụ thuộc, nén cửa sổ trượt (Sliding Window Compaction) và là **Single Source of Truth** về Taint & Provenance.
+- **Canonical Intermediate Representation (CIR):** Biểu diễn trung gian đa chiều có 2 kênh logic: `instruction_channel` và `data_channel`. Gắn nhãn 3 chiều độc lập: Authority × Integrity × Confidentiality cho từng segment.
+- **Taint Propagation:** Dựa trên `context_influence_set` (toàn bộ dữ liệu thực tế đã đưa vào context để sinh đầu ra), không suy diễn nhân quả cảm tính.
+- **Bảo toàn Invariant:** `Pinned Invariants` (quyết định của user, chính sách hệ thống) có quota cứng, không bao giờ bị nén. Nếu quota bắt buộc vượt giới hạn mô hình, trả về `ContextUnsatisfiable` để xin ý kiến User, không cắt tỉa âm thầm.
+
+### 2.5. Module 5: `memory_manager` (Long-Term Knowledge & Fact Store)
+- **Trách nhiệm:** Quản lý lưu trữ và truy xuất 4 tầng nhớ: `working` (phiên), `episodic` (lịch sử sự kiện), `semantic` (tri thức tra cứu), `procedural` (quy trình mẫu).
+- **Two-Phase Write Gate:** Ghi vào dài hạn phải qua: `MemoryCandidate → Validation/Conflict-Check → Verification/Approval → CommittedMemoryRecord`. Dữ liệu có nhãn Taint không được tự ý ghi vào `semantic/procedural` nếu chưa qua Trusted Verifier hoặc User duyệt.
+- **Truy xuất Đa chiều:** `MemoryQuery` hỗ trợ: tenant scope, time range, taint ceiling, record types, token budget và snapshot version.
+- **Crypto-Erasure (`forget`):** Tiêu hủy khóa mã hóa (DEK) của payload blob và ghi nhận tombstone; structural metadata được giữ lại phục vụ tính toàn vẹn của audit.
+
+### 2.6. Module 6: `tool_manager` (Tool Catalog & Codec Port)
+- **Trách nhiệm:** Quản lý danh mục công cụ (`ToolCatalog`), thẩm định tham số đầu vào (`Pydantic`), chọn lọc công cụ theo ngữ cảnh (`select_tools` - discovery layer), chuyển đổi yêu cầu thành Pure Data `ToolInvocationPlan` và giải mã `ScrubbedExecutionOutput`.
+- **Ranh giới Tuyệt đối:** Không sở hữu Process Launcher, không giữ OS file handle, không mở socket mạng, không nắm giữ Secret. Mọi kế hoạch đều là Pure Data Union (`WorkspaceFileOpSpec`, `SubprocessSpec`, `HttpEgressSpec`, `PureFunctionSpec`).
+
+### 2.7. Module 7: `runtime_governance` (Execution Interceptor & TCB)
+- **Trách nhiệm:** Cổng thực thi có quản trị duy nhất (`GovernedToolExecutor` & `ConversationGovernancePort`), nắm toàn bộ Trusted Computing Base (TCB) của hệ thống.
+- **6 Sub-packages Độc lập (Tuân thủ DAG một chiều):**
+  1. `policy_enforcement/`: Đối chiếu `OperatorApprovedToolManifestRegistry`, kiểm tra dynamic policy (`current_enforcement_policy_version`), cấp `AuthorizedDelegationGrant`, quản lý `AttemptLedger`.
+  2. `isolation/`: Nắm giữ `AuthorizedResourceSet` (handle-walk chống symlink race trên POSIX/Windows), chạy tiến trình trong `SHADOW_STAGING` hermetic hoặc OS Container.
+  3. `transaction/`: Quản lý CAS Resource Lease, `WorkspaceSnapshotWAL` all-or-nothing merge, và Single-Writer Saga Queue có `fencing_token`.
+  4. `secret_broker/`: Bơm credential tại Egress Proxy (`EGRESS_PROXY_INJECTED`) hoặc Ephemeral FD; không để raw secret lọt vào M6/M3.
+  5. `content_safety/`: Bounded Streaming DLP với cơ chế `Discard + Best-Effort Zeroization` khi phát hiện secret; kiểm duyệt Input Guardrails.
+  6. `audit_observability/`: Ký số và xuất bản `ExecutionReceipt` (phân tách `dispatch_state` và `outcome_state`), bảo quản Audit Trail, giám sát Resource Quota.
+
+---
+
+## 3. Sơ đồ Luồng Điều khiển và Dữ liệu Hợp nhất (Unified 7-Module Architecture)
+
+```
+=============================================================================================
+[EXTENSIONS] outer_verification_harness (CI/Eval)  |  external_coding_tools (AST/LSP MCP)
+=============================================================================================
+                                         │
+                                         ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                              LÕI AI AGENT: ĐÚNG 7 MODULE                                  ┃
+┃                                                                                           ┃
+┃   [M2: prompt_manager]            [M5: memory_manager]                                    ┃
+┃   - Versioned Instruction Repo    - 4-Tier Memory (Working/Episodic/Semantic/Procedural)  ┃
+┃   - Template & Precedence Rules   - Two-Phase Write Gate & Crypto-Erasure                 ┃
+┃            │                               │                                              ┃
+┃            └───────────────┬───────────────┘                                              ┃
+┃                            ▼                                                              ┃
+┃               [M4: context_manager] (Single Source of Truth for Taint)                    ┃
+┃               - ContextManifest Token Allocation (Strict Priority Quotas)                 ┃
+┃               - Assembles Canonical Intermediate Representation (CIR: 3-D Lattice)        ┃
+┃               - Calculates context_influence_set for Provenance Lineage                   ┃
+┃                            │                                                              ┃
+┃                            ▼                                                              ┃
+┃   [M1: llm_manager] ◄──────────────► [M3: orchestrator] (Durable Control Plane)          ┃
+┃   - LLMProviderPort (CIR-aware)      - Event-Sourced SessionControlLog (CAS Append)       ┃
+┃   - Same-Profile Fallback Guard      - State Machine (with M7 ToolInvocationSubstate)     ┃
+┃   - Model Limits & Usage Metric      - Native Sub-agent Delegation Controller             ┃
+┃                                      - UserInteractionPort Mediator                       ┃
+┃                                                    │                                      ┃
+┃                                                    ▼                                      ┃
+┃                          [M7: runtime_governance] (Sole Execution TCB)                    ┃
+┃                          ├── 7.1 policy_enforcement (Dynamic Policy Check & Grants)       ┃
+┃                          ├── 7.2 isolation (AuthorizedResourceSet, SHADOW_STAGING)        ┃
+┃                          ├── 7.3 transaction (Resource CAS Lease, WAL, Saga DAG)          ┃
+┃                          ├── 7.4 secret_broker (Egress Proxy / Ephemeral FDs)             ┃
+┃                          ├── 7.5 content_safety (Streaming DLP Discard/Zeroize)           ┃
+┃                          └── 7.6 audit_observability (Signed Terminal Receipts)           ┃
+┃                                                    │                                      ┃
+┃                                                    ▼ (calls ToolPlanAndCodecPort)         ┃
+┃                          [M6: tool_manager] (Pure Data Catalog & Codec)                   ┃
+┃                          - ToolCatalog & select_tools() Discovery                         ┃
+┃                          - prepare_invocation() -> Pure Data ToolInvocationPlan           ┃
+┃                          - parse_output(ScrubbedExecutionOutput) -> ToolResult            ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```
