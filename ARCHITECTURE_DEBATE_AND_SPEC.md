@@ -453,3 +453,103 @@ Sau khi `Module 7 (runtime_governance)` được đặc tả chặt chẽ ở Ph
 ┃                          - parse_output(ScrubbedExecutionOutput) -> ToolResult            ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 ```
+
+
+---
+
+## 4. Kiáº¿n trÃºc Váº­n hÃ nh Thá»±c táº¿ (Production Operational Architecture - Phase 5)
+
+DÆ°á»›i Ä‘Ã¢y lÃ  Ä‘áº·c táº£ chi tiáº¿t 4 bÃ i toÃ¡n váº­n hÃ nh phá»©c táº¡p khi triá»ƒn khai 7 module lÃµi trÃªn há»‡ thá»‘ng production thá»±c táº¿, Ä‘Ã£ Ä‘Æ°á»£c hoÃ n thiá»‡n vÃ  Ä‘á»“ng thuáº­n qua tranh biá»‡n Ä‘a gÃ³c nhÃ¬n:
+
+### 4.1 Cáº¡nh tranh TÃ i nguyÃªn Äa Agent/Äa PhiÃªn trÃªn Shared Workspace
+1. **Hai Publication Mode TÃ¡ch Báº¡ch Tuyá»‡t Äá»‘i:**
+   - **`GENERATION_PUBLICATION` (True Atomic Visibility):**
+     - Ãp dá»¥ng cho cÃ¡c runtime/build tooling há»— trá»£ pointer-aware generation protocol.
+     - Dá»¯ liá»‡u Ä‘Æ°á»£c ghi vÃ o thÆ° má»¥c báº¥t biáº¿n `gen_<N>`.
+     - Quy trÃ¬nh báº£o Ä‘áº£m Ä‘á»™ bá»n vá»¯ng (Durability Protocol):
+       - *POSIX:* (1) `fsync` toÃ n bá»™ file trong generation; (2) `fsync` cÃ¡c thÆ° má»¥c con tá»« dÆ°á»›i lÃªn (bottom-up); (3) `fsync` thÆ° má»¥c cha `gen_<N>`; (4) Táº¡o pointer táº¡m `current.new` vÃ  `fsync`; (5) Atomic rename thay tháº¿ `current` (hoáº·c `RENAME_EXCHANGE` cÃ³ cÆ¡ cháº¿ dá»n dáº¹p orphan); (6) `fsync` thÆ° má»¥c cha chá»©a pointer.
+       - *Windows & Network Filesystem:* OS adapter cÃ´ng bá»‘ `FilesystemDurabilityMatrix` cho `FlushFileBuffers` vÃ  atomic metadata/rename. Náº¿u khÃ´ng Ä‘Ã¡p á»©ng, há»‡ thá»‘ng tá»± Ä‘á»™ng háº¡ cáº¥p durability contract vÃ  cáº£nh bÃ¡o operator.
+     - Reader báº¯t buá»™c pháº£i pin `(generation_id, root_handle)` má»™t láº§n duy nháº¥t cho toÃ n bá»™ read transaction Ä‘á»ƒ duy trÃ¬ transaction isolation.
+   - **`IN_PLACE_WAL_APPLY` (Crash-Recoverable cho MÃ´i trÆ°á»ng IDE / Filesystem ThÃ´ng thÆ°á»ng):**
+     - Máº·c Ä‘á»‹nh cho cÃ¡c workspace thÃ´ng thÆ°á»ng cá»§a láº­p trÃ¬nh viÃªn.
+     - Giá»¯ `WorkspaceGenerationLease` Ä‘á»ƒ phÃ¢n xá»­ thá»© tá»± ghi giá»¯a cÃ¡c Agent writer tuÃ¢n thá»§ protocol (khÃ´ng Ä‘áº¡i diá»‡n hay cáº¥m Ä‘oÃ¡n Ä‘Æ°á»£c thao tÃ¡c trá»±c tiáº¿p cá»§a User).
+     - Thá»±c hiá»‡n CAS tá»«ng file ngay trÆ°á»›c khi ghi, ghi kÃ¨m durable undo/redo WAL cÃ³ `fencing_token`.
+     - Cam káº¿t crash-recoverable, **khÃ´ng cam káº¿t atomic visibility** Ä‘á»‘i vá»›i quan sÃ¡t viÃªn bÃªn ngoÃ i.
+     - **Báº£o tá»“n Dá»¯ liá»‡u NgÆ°á»i dÃ¹ng khi Recovery:** WAL undo chá»‰ Ä‘Æ°á»£c phÃ©p hoÃ n nguyÃªn khi tráº¡ng thÃ¡i hiá»‡n thá»i cá»§a file khá»›p chÃ­nh xÃ¡c vá»›i `expected_postimage` bao phá»§ toÃ n bá»™ footprint: `(object_identity, existence_state, content_digest, metadata_fingerprint, ACL_descriptor, xattr_hash, alternate_data_streams)`.
+     - Náº¿u User Ä‘Ã£ sá»­a file lÃ m lá»‡ch footprint: Tuyá»‡t Ä‘á»‘i KHÃ”NG ghi Ä‘Ã¨ dá»¯ liá»‡u cá»§a User; giá»¯ nguyÃªn file hiá»‡n tráº¡ng, trÃ­ch xuáº¥t thay Ä‘á»•i cá»§a Agent thÃ nh `ConflictArtifact` bá»n vá»¯ng (`fsync`) vÃ  chuyá»ƒn phiÃªn sang `MERGE_CONFLICT_SUSPENDED`. Náº¿u khÃ´ng thá»ƒ ghi durable `ConflictArtifact`, há»‡ thá»‘ng giá»¯ cá» `RECOVERY_REQUIRED` vÃ  cháº·n Agent writer má»›i.
+
+2. **Namespace Identity & KhÃ³a PhÃ¢n táº§ng TrÃ¡nh Lock Explosion:**
+   - **Volume-Specific Comparison Semantics:** Loáº¡i bá» hÃ m chuá»—i chung nhÆ° `Path.lower()`. Namespace key báº¯t buá»™c dá»±a trÃªn handle Ä‘Ã£ xÃ¡c thá»±c `(workspace_root_identity, VolumeSerialNumber, FileId, workspace_generation)` vÃ  cÆ¡ cháº¿ so sÃ¡nh Ä‘áº·c thÃ¹ cá»§a volume/filesystem (NTFS Case-Preserving Case-Insensitive qua kernel uppercase table; Linux case-sensitive hoáº·c directory-level casefold).
+   - **Hierarchical Intention Locking:** Thay vÃ¬ snapshot toÃ n bá»™ subtree handles gÃ¢y ná»• tÃ i nguyÃªn, há»‡ thá»‘ng dÃ¹ng Intent Lock phÃ¢n táº§ng (`IS` - Intent Shared, `IX` - Intent Exclusive) trÃªn cÃ¡c node tá»• tiÃªn káº¿t há»£p **Handle-Relative Traversal** (`openat` / `NtOpenFile`) vÃ  kiá»ƒm tra revalidation tÃ­nh toÃ n váº¹n cá»§a handle ngay trÆ°á»›c khi mutation.
+   - **Ranh giá»›i Threat Model:** Handle identity phÃ¡t hiá»‡n vÃ  cháº·n TOCTOU giá»¯a cÃ¡c client tuÃ¢n thá»§ protocol trong threat model Ä‘Ã£ Ä‘á»‹nh nghÄ©a; khÃ´ng ngÄƒn cháº·n hÃ nh vi thay Ä‘á»•i cáº¥u trÃºc Ä‘Ä©a cá»§a cÃ¡c external actor ngoÃ i protocol.
+
+3. **MÃ´ hÃ¬nh Há»£p nháº¥t PhÃ¢n táº§ng (Tiered Merge Model):**
+   - **Táº§ng 1 (Auto-Apply):** Ãp dá»¥ng tá»± Ä‘á»™ng khi táº­p file thay Ä‘á»•i trong staging hoÃ n toÃ n khÃ´ng giao nhau vá»›i cÃ¡c thay Ä‘á»•i trÃªn workspace chÃ­nh tÃ­nh tá»« `base_workspace_generation`.
+   - **Táº§ng 2 (Merge Proposal):** Khi cÃ³ thay Ä‘á»•i khÃ¡c dÃ²ng trÃªn cÃ¹ng file, cÃ´ng cá»¥ semantic merge chá»‰ sinh ra `MergeProposal` cÃ³ cáº¥u trÃºc (chá»©a diff, AST impact report vÃ  test validation evidence) Ä‘á»ƒ trÃ¬nh User, tuyá»‡t Ä‘á»‘i khÃ´ng tá»± Ã½ commit vÃ o workspace chÃ­nh.
+   - **Táº§ng 3 (Mandatory Approval):** Khi thay Ä‘á»•i Ä‘á»¥ng vÃ o cÃ¹ng symbol/API contract, rename/delete, file generated hoáº·c file manifest phá»¥ thuá»™c (`pyproject.toml`, lockfiles) âž” Báº¯t buá»™c chuyá»ƒn sang `ASK_USER` kÃ¨m `MergeProposal`.
+   - `ExecutionReceipt` lÆ°u trá»¯ Ä‘áº§y Ä‘á»§ `(base_digest, ours_digest, theirs_digest, result_digest, merger_version, validation_evidence)` vÃ  cÃ´ng bá»‘ minh báº¡ch residual risk ngá»¯ nghÄ©a.
+
+---
+
+### 4.2 Giao thá»©c Can thiá»‡p Thá»i gian thá»±c & Ngáº¯t Tiáº¿n trÃ¬nh An toÃ n
+1. **MÃ¡y tráº¡ng thÃ¡i Can thiá»‡p Há»£p tÃ¡c (Cooperative Preemption State Machine):**
+   - VÃ²ng Ä‘á»i: `REQUESTED â†’ ACKNOWLEDGED â†’ QUIESCING â†’ QUIESCED | CANNOT_CANCEL | OUTCOME_UNKNOWN`.
+   - **`INTERRUPT_GRACEFUL`:** Äáº·t `graceful_timeout_ms`. Náº¿u quÃ¡ háº¡n mÃ  tool chÆ°a káº¿t thÃºc âž” phÃ¡t sá»± kiá»‡n `GRACEFUL_TIMEOUT_ESCALATING` Ä‘á»ƒ há»i User cÃ³ nÃ¢ng cáº¥p lÃªn ngáº¯t cÆ°á»¡ng bá»©c hay khÃ´ng.
+   - **`INTERRUPT_ABORT_ACTION`:** Äá»‹nh danh chÃ­nh xÃ¡c lÃ  **Best-Effort Cancellation**, khÃ´ng cam káº¿t rollback external side-effect.
+     - *TrÆ°á»›c `DISPATCHED`:* Há»§y bá» sáº¡ch, giáº£i phÃ³ng quota/lease vÃ  trá»Ÿ vá» tráº¡ng thÃ¡i an toÃ n.
+     - *Sau `DISPATCHED`:* Gá»­i tÃ­n hiá»‡u kill tiáº¿n trÃ¬nh á»Ÿ M7 `isolation`, sau Ä‘Ã³ M7 gá»i `StatusProbeSpec` (vá»›i idempotency key). Náº¿u probe xÃ¡c nháº­n thÃ nh cÃ´ng âž” ghi nháº­n `TERMINAL_WITH_RECEIPT(SUCCEEDED)`; náº¿u probe xÃ¡c nháº­n chÆ°a cháº¡y âž” rollback WAL cá»¥c bá»™; náº¿u probe khÃ´ng xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c âž” chuyá»ƒn phiÃªn sang `HALTED_INDETERMINATE_SIDE_EFFECT`.
+     - *Vá»›i LLM streaming:* M3 Ä‘Ã¡nh dáº¥u cÃ¡c token chÆ°a commit lÃ  `SUPERSEDED_IN_FLIGHT` vÃ  chá» ack há»§y tá»« provider adapter.
+
+2. **Containment Admission Fail-Closed TrÆ°á»›c Khi Thá»±c Thi:**
+   - Chá»‰ admit local execution khi containment profile Ä‘Æ°á»£c xÃ¡c minh trÆ°á»›c launch; náº¿u khÃ´ng Ä‘áº¡t, tá»« chá»‘i execution hoáº·c chuyá»ƒn thÃ nh external runner cÃ³ receipt riÃªng.
+   - **TrÃªn Windows:** Tiáº¿n trÃ¬nh báº¯t buá»™c táº¡o á»Ÿ tráº¡ng thÃ¡i `CREATE_SUSPENDED`, gÃ¡n vÃ o Job Object Ä‘Æ°á»£c cáº¥u hÃ¬nh cáº¥m breakaway (bá» cá» `JOB_OBJECT_LIMIT_BREAKAWAY_OK`) vÃ  báº­t `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` trÆ°á»›c khi resume thread.
+   - **TrÃªn Linux:** Khá»Ÿi táº¡o process cgroup chuyÃªn biá»‡t qua `clone3(CLONE_INTO_CGROUP)` hoáº·c launcher thÆ°á»ng trá»±c trong cgroup; tÆ°á»›c bá» Ä‘áº·c quyá»n `CAP_SYS_ADMIN` vÃ  cáº¥m sá»­a Ä‘á»•i `cgroup.procs`.
+   - **Cháº·n Alternate Spawn Channels:** ChÃ­nh sÃ¡ch capability cá»§a M7 cáº¥m triá»‡t Ä‘á»ƒ viá»‡c tÆ°Æ¡ng tÃ¡c vá»›i cÃ¡c kÃªnh spawn giÃ¡n tiáº¿p (Windows WMI/RPC/Service Manager, D-Bus, container socket, systemd runner).
+   - Náº¿u containment khÃ´ng thá»ƒ chá»©ng minh toÃ¡n há»c tÃ­nh kÃ­n cá»§a ranh giá»›i khi cÃ³ sá»± cá»‘ âž” Láº­p tá»©c chuyá»ƒn sang `HALTED_INDETERMINATE_SIDE_EFFECT`.
+
+3. **TiÃªu chuáº©n Authoritative Cho Status Probe:**
+   - Chá»‰ cháº¥p nháº­n tráº¡ng thÃ¡i `CONFIRMED_NOT_EXECUTED` khi cÃ³ receipt Ã¢m tÃ­nh cÃ³ tháº©m quyá»n (authoritative negative receipt) gáº¯n tá»‘i thiá»ƒu 4 chiá»u: `(provider_id, tenant_id, operation_id, idempotency_epoch)`.
+   - Má»i káº¿t quáº£ timeout, khÃ´ng tÃ¬m tháº¥y hoáº·c chÆ°a Ä‘á»“ng bá»™ eventual consistency báº¯t buá»™c pháº£i lÃ  `PROBE_PENDING` hoáº·c `PROBE_AMBIGUOUS`.
+   - WAL cá»¥c bá»™ reconcile Ä‘á»™c láº­p vá»›i external side-effect; khÃ´ng dÃ¹ng negative external receipt Ä‘á»ƒ suy diá»…n filesystem cá»¥c bá»™ Ä‘Ã£ sáº¡ch.
+
+4. **Äiá»u hÆ°á»›ng Thá»i gian thá»±c (`STEER_IN_FLIGHT`):**
+   - Append vÃ o `SessionControlLog` qua CAS trÃªn `expected_seq` vá»›i Ä‘áº§y Ä‘á»§: `directive_id, target_execution_epoch, target_step_id, authority, idempotency_key`.
+   - M3 phÃ¢n xá»­: Náº¿u Ä‘áº¿n ká»‹p trÆ°á»›c dispatch epoch má»›i âž” tráº£ `SteeringReceipt(status=APPLIED)`; náº¿u bÆ°á»›c tiáº¿p theo Ä‘Ã£ dispatch âž” tráº£ `SteeringReceipt(status=DEFERRED | STALE)`.
+   - KhÃ´ng há»“i tá»‘ hÃ nh Ä‘á»™ng Ä‘Ã£ dispatch; M4 tÃ¡i láº¯p rÃ¡p context theo chá»‰ Ä‘áº¡o cá»§a `SessionBudgetLedger` thuá»™c M3.
+
+---
+
+### 4.3 Ranh giá»›i IPC Hermetic cá»§a 2 Tiá»‡n Ã­ch Má»Ÿ rá»™ng (`extensions/`)
+1. **`extensions/external_coding_tools` (AST/LSP Daemon):**
+   - Daemon **tuyá»‡t Ä‘á»‘i khÃ´ng Ä‘á»c trá»±c tiáº¿p workspace sá»‘ng** Ä‘á»ƒ triá»‡t tiÃªu TOCTOU vÃ  quan sÃ¡t tráº¡ng thÃ¡i dá»Ÿ dang. M7 `isolation` cáº¥p **Read-Only Immutable CAS View / Snapshot** cho Daemon.
+   - Cháº¡y trong sandbox khÃ´ng máº¡ng, khÃ´ng quyá»n ghi ra workspace (chá»‰ cÃ³ cache riÃªng cÃ³ quota, key theo snapshot digest).
+   - Giao tiáº¿p qua Named Pipe / Domain Socket cÃ³: session authentication, version handshake, request timeout, backpressure, vÃ  schema validation.
+   - ToÃ n bá»™ káº¿t quáº£ phÃ¢n tÃ­ch AST/LSP tráº£ vá» cho M6 Ä‘á»u mang nhÃ£n provenance/taint vÃ  Ä‘i qua DLP cá»§a M7 trÆ°á»›c khi Ä‘Æ°a vÃ o context.
+
+2. **`extensions/outer_verification_harness` (Out-of-Tree CI Runner):**
+   - M7 cáº¥p capability cÃ³ TTL Ä‘á»ƒ harness Ä‘á»c Immutable CAS Snapshot kÃ¨m `(test_plan_digest, lockfile_digest, toolchain_image_digest, network_policy_manifest)`.
+   - Harness thá»±c thi sealed tests vÃ  táº¡o `AttestationReceipt` kÃ½ sá»‘ (chá»©a input/output/artifact digest, nonce, trust-root version).
+   - **M7 lÃ  cá»•ng xÃ¡c minh duy nháº¥t:** M7 kiá»ƒm tra chá»¯ kÃ½ vÃ  tÃ­nh há»£p lá»‡ cá»§a Attestation, sau Ä‘Ã³ phÃ¡t `VerificationObservation` Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c thá»±c sang M3. M3 tuyá»‡t Ä‘á»‘i khÃ´ng tá»± lÃ m cryptographic verifier.
+
+---
+
+### 4.4 Bounded-Pause Session Migration (Zero-Downtime Real-Time Upgrade)
+1. **Äá»‹nh danh Semantics:** Chuáº©n hÃ³a lÃ  **Bounded-Pause Migration** (táº¡m dá»«ng cÃ³ giá»›i háº¡n thá»i gian táº¡i cá»­a sá»• cutover), khÃ´ng tuyÃªn bá»‘ zero-downtime tuyá»‡t Ä‘á»‘i.
+2. **TiÃªu chuáº©n Safe Point ToÃ n Diá»‡n:** PhiÃªn chá»‰ Ä‘áº¡t Safe Point Ä‘á»ƒ báº¯t Ä‘áº§u cutover khi thá»a mÃ£n Ä‘á»“ng thá»i 3 Ä‘iá»u kiá»‡n:
+   - KhÃ´ng cÃ²n báº¥t ká»³ tool, outbox message, hoáº·c status probe nÃ o á»Ÿ tráº¡ng thÃ¡i pending/unresolved.
+   - KhÃ´ng cÃ³ báº¥t ká»³ workspace WAL hoáº·c recovery flow nÃ o Ä‘ang má»Ÿ (`RECOVERY_REQUIRED` = false).
+   - KhÃ´ng cÃ²n báº¥t ká»³ registered callback nÃ o cÃ³ kháº£ nÄƒng phÃ¡t sinh side-effect.
+3. **Quy trÃ¬nh Two-Phase Takeover:**
+   - **Pha 1 (`PREPARE`):** Runtime má»›i shadow-fold log sá»± kiá»‡n tá»›i sequence `N` báº±ng pure deterministic upcasters khi runtime cÅ© váº«n Ä‘ang hoáº¡t Ä‘á»™ng.
+   - **Pha 2 (`QUIESCE`):** YÃªu cáº§u runtime cÅ© dá»«ng phÃ¡t bÆ°á»›c má»›i táº¡i safe point. Náº¿u quÃ¡ deadline mÃ  chÆ°a Ä‘áº¡t safe point âž” chuyá»ƒn sang `MIGRATION_DEFERRED`, tuyá»‡t Ä‘á»‘i khÃ´ng cÆ°á»¡ng bá»©c takeover.
+   - **Pha 3 (`CUTOVER`):** Runtime má»›i acquire `SessionOwnershipLease` má»›i, fence toÃ n bá»™ writer cÅ©, fold pháº§n delta `N+1...M`, cháº¡y dual-schema invariant checker vÃ  thá»±c hiá»‡n **CAS nguyÃªn tá»­ táº¡i sequence `M+1`**.
+4. **NguyÃªn Tá»­ HÃ³a Cutover & TrÃ¡nh Crash Gap:**
+   - `TakeoverEvent`, `new_schema_epoch`, vÃ  `compatibility_barrier` Ä‘Æ°á»£c Ä‘Ã³ng gÃ³i vÃ  ghi nguyÃªn tá»­ vÃ o `SessionControlLog` báº±ng **Má»˜T CAS duy nháº¥t táº¡i log sequence `M+1`**, loáº¡i bá» hoÃ n toÃ n khoáº£ng trá»‘ng crash gap.
+   - Báº¯t buá»™c dÃ¹ng cÃ¹ng má»™t durable store cho Authoritative Epoch vÃ  `TakeoverEvent` (hoáº·c coordinator WAL 2PC vá»›i quy Ä‘á»‹nh participant khÃ´ng heuristic commit vÃ  M7 fail-closed trong má»i tráº¡ng thÃ¡i `PREPARED/IN_DOUBT`).
+5. **M7 Capability Epoch Fencing & Xá»­ LÃ½ Stale Result Qua Quarantine Audit:**
+   - M7 `isolation` vÃ  capability gate báº¯t buá»™c kiá»ƒm tra `(SessionOwnershipLease, fencing_token)` tuyáº¿n tÃ­nh táº¡i cáº£ lÃºc dispatch vÃ  lÃºc nháº­n káº¿t quáº£.
+   - Má»i káº¿t quáº£ mang epoch cÅ© bá»‹ tá»« chá»‘i tiáº¿p nháº­n bá»Ÿi M3 control log nhÆ°ng **báº¯t buá»™c pháº£i ghi vÃ o `QuarantineAuditLog`**:
+     - *Duplicate xÃ¡c minh Ä‘Æ°á»£c:* Deduplicate an toÃ n.
+     - *Thao tÃ¡c Ä‘Ã£ cháº¡y trÃªn external service nhÆ°ng reconciliation chÆ°a xong:* Duy trÃ¬ probe/compensation workflow.
+     - *KhÃ´ng xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c tÃ­nh an toÃ n:* Láº­p tá»©c kÃ­ch hoáº¡t `HALTED_INDETERMINATE_SIDE_EFFECT`.
+   - Sau khi ghi sá»± kiá»‡n schema má»›i Ä‘áº§u tiÃªn, cáº¥m vÄ©nh viá»…n runtime cÅ© resume session nÃ y. Má»i approval cÅ© Ä‘á»u bá»‹ tÃ¡i kiá»ƒm tra tÃ­nh há»£p lá»‡ trÆ°á»›c khi Ä‘i tiáº¿p.
