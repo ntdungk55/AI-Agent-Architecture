@@ -553,3 +553,79 @@ DÆ°á»›i Ä‘Ã¢y lÃ  Ä‘áº·c táº£ chi tiáº¿t 4 bÃ i toÃ�
      - *Thao tÃ¡c Ä‘Ã£ cháº¡y trÃªn external service nhÆ°ng reconciliation chÆ°a xong:* Duy trÃ¬ probe/compensation workflow.
      - *KhÃ´ng xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c tÃ­nh an toÃ n:* Láº­p tá»©c kÃ­ch hoáº¡t `HALTED_INDETERMINATE_SIDE_EFFECT`.
    - Sau khi ghi sá»± kiá»‡n schema má»›i Ä‘áº§u tiÃªn, cáº¥m vÄ©nh viá»…n runtime cÅ© resume session nÃ y. Má»i approval cÅ© Ä‘á»u bá»‹ tÃ¡i kiá»ƒm tra tÃ­nh há»£p lá»‡ trÆ°á»›c khi Ä‘i tiáº¿p.
+
+
+---
+
+## 5. Háº¥p thá»¥ & Báº£n Ä‘á»‹a hÃ³a CÃ¡c TÃ­nh nÄƒng Äá»‰nh cao tá»« cÃ¡c AI Agent HÃ ng Ä‘áº§u (Phase 6 Consensus)
+
+Nháº±m nÃ¢ng cao nÄƒng lá»±c giáº£i quyáº¿t tÃ¡c vá»¥ ká»¹ thuáº­t tÆ°Æ¡ng Ä‘Æ°Æ¡ng cÃ¡c há»‡ thá»‘ng thÆ°Æ¡ng máº¡i tiÃªn tiáº¿n nháº¥t (Claude Code, Devin, Cursor, Aider, LangGraph), 5 máº«u thiáº¿t káº¿ thá»±c chiáº¿n Ä‘á»‰nh cao Ä‘Ã£ Ä‘Æ°á»£c báº£n Ä‘á»‹a hÃ³a vÃ  tÃ­ch há»£p cháº·t cháº½ vÃ o Ä‘Ãºng 7 Module LÃµi:
+
+### 5.1 Query-Biased Condensed Repo Map (Há»c tá»« Aider & Cursor âž” M4 `context_manager`)
+1. **Luá»“ng Táº¡o & TiÃªu Thá»¥ Há»£p Nháº¥t (TuÃ¢n thá»§ DAG má»™t chiá»u):**
+   - M3 gá»­i yÃªu cáº§u phÃ¢n tÃ­ch AST âž” M6 chuáº©n bá»‹ `ToolInvocationPlan` (pure data) âž” M7 cáº¥p Immutable CAS Snapshot vÃ  thá»±c thi hermetic daemon cá»§a `extensions/external_coding_tools` âž” M7 quÃ©t DLP âž” M6 giáº£i mÃ£ thÃ nh `RepoGraphArtifact` âž” M4 xáº¿p háº¡ng vÃ  láº¯p rÃ¡p vÃ o context.
+   - M4 tuyá»‡t Ä‘á»‘i khÃ´ng tá»± gá»i extension hoáº·c network egress; M4 chá»‰ tiÃªu thá»¥ typed artifact.
+2. **Äá»™ Bá»n Vá»¯ng & Minh Báº¡ch cá»§a Graph:**
+   - `RepoGraphArtifact` gáº¯n cháº·t vá»›i `(workspace_snapshot_digest, graph_schema_version, parser_toolchain_digest)`.
+   - Khai bÃ¡o rÃµ rÃ ng `(coverage_metrics, unknown_edges_ratio)` cho dynamic dispatch, reflection vÃ  generated code; khÃ´ng tuyÃªn bá»‘ graph pháº£n Ã¡nh 100% sá»± tháº­t.
+3. **Canonical Arithmetic & Deterministic PageRank:**
+   - Cam káº¿t má»©c Ä‘á»™ **`RANK_ORDER_DETERMINISTIC`**.
+   - Thuáº­t toÃ¡n triá»ƒn khai theo Fixed-Point Arithmetic (Q16.16 hoáº·c Decimal Precision cá»‘ Ä‘á»‹nh 8 chá»¯ sá»‘) Ä‘á»ƒ triá»‡t tiÃªu sai sá»‘ trÃ´i ná»•i giá»¯a cÃ¡c CPU/trÃ¬nh biÃªn dá»‹ch khÃ¡c nhau; duyá»‡t graph theo Canonical Node Order (tá»« Ä‘iá»ƒn UTF-8) vÃ  sparse-matrix traversal báº¥t biáº¿n.
+   - `SemanticScoreArtifact` (náº¿u dÃ¹ng embedding) báº¯t buá»™c pháº£i do M7 thá»±c thi trong sandbox (local model) hoáº·c qua M7 Egress Proxy cÃ³ kiá»ƒm tra DLP/secret-broker (remote model). Náº¿u cáº¥m egress vÃ  khÃ´ng cÃ³ local model âž” M4 tá»± Ä‘á»™ng háº¡ cáº¥p vá» **`STRUCTURAL_ONLY`** cÃ³ gáº¯n cá» minh báº¡ch trÃªn receipt.
+
+---
+
+### 5.2 Bounded Micro-Compaction & Semantic Lineage Preserving (Há»c tá»« Claude Code âž” M4 `context_manager`)
+1. **Báº£o Tá»“n Báº±ng Chá»©ng Tuyá»‡t Äá»‘i (KhÃ´ng PhÃ¡ Há»§y Raw Output):**
+   - Micro-compaction khÃ´ng lÃ m máº¥t kháº£ nÄƒng audit/replay. ToÃ n bá»™ raw tool outputs sau khi qua DLP cá»§a M7 Ä‘Æ°á»£c lÆ°u trá»¯ ngoÃ i context thÃ nh **`AuthoritativeObservationArtifact`** (mÃ£ hÃ³a tenant-scoped, gáº¯n khÃ³a báº±ng `randomized_blob_id + keyed_commitment`, tuÃ¢n thá»§ audit retention, khÃ´ng bá»‹ cache eviction).
+   - `RehydratableLocalCache` (tÄƒng tá»‘c) cÃ³ TTL vÃ  cÃ³ thá»ƒ dá»n dáº¹p Ä‘á»™c láº­p.
+2. **`CondensedObservationReceipt` Trong Context Window:**
+   - Thay tháº¿ cÃ¡c khá»‘i output thÃ´ báº±ng receipt ngáº¯n gá»n chá»©a: `(raw_artifact_digest, tool_execution_receipt_id, extractor_version, exit_status, salient_facts, omitted_ranges, lineage_digest, rehydration_handle)`.
+   - Chá»‰ Ä‘Æ°á»£c táº¡o sau khi sá»± kiá»‡n `ObservationCommitted` Ä‘Ã£ Ä‘Æ°á»£c append thÃ nh cÃ´ng vÃ o `SessionControlLog`.
+   - Taint lineage vÃ  `context_influence_set` káº¿ thá»«a há»£p toÃ¡n há»c tá»« raw output, compaction khÃ´ng Ä‘Æ°á»£c tá»± Ã½ thu háº¹p taint.
+3. **VÃ¹ng Cháº©n ÄoÃ¡n Báº£o Vá»‡ (`ProtectedDiagnosticSegment`):**
+   - Lá»—i compiler, stack trace, assertion failures lÃ  dá»¯ liá»‡u `TAINTED`, tuyá»‡t Ä‘á»‘i khÃ´ng nÃ¢ng authority thÃ nh `Pinned Invariants`.
+   - M4 cáº¥p háº¡n má»©c riÃªng (`diagnostic_token_quota`) chá»‰ giá»¯: `(failure_signature, exception_type, top_bottom_frames_max_3, source_location_ranges, assertion_expected_actual, raw_artifact_line_ref)`.
+   - VÆ°á»£t quota âž” sinh `DiagnosticOverflowReceipt` cÃ³ rehydration handle; user approval chá»‰ tÄƒng quota cÃ³ giá»›i háº¡n chá»© khÃ´ng nÃ¢ng authority.
+
+---
+
+### 5.3 Hierarchical Goal-Tree & Checkpoint Time-Travel (Há»c tá»« Devin & LangGraph âž” M3 `orchestrator`)
+1. **PhÃ¢n RÃ£ Káº¿ Hoáº¡ch Äa Chiá»u:**
+   - TÃ¡ch biá»‡t rÃµ rÃ ng giá»¯a **`GoalTree`** (phÃ¢n rÃ£ má»¥c tiÃªu nghiá»‡p vá»¥: `Epic â†’ Task â†’ Subtask â†’ ActionStep`) vÃ  **`ExecutionDependencyDAG`** (rÃ ng buá»™c thá»© tá»± thá»±c thi vÃ  join synchronization).
+2. **Time-Travel An ToÃ n (KhÃ´ng Ghi LÃ¹i Workspace Sá»‘ng):**
+   - `SessionCheckpointId`: `(branch_id, log_seq, folded_state_digest, workspace_snapshot_digest, capability_epoch, budget_ledger_digest)`.
+   - Khi ráº½ nhÃ¡nh (`PlanBranchFork`), M7 `isolation` materialize snapshot quÃ¡ khá»© thÃ nh má»™t **`BranchShadowWorkspace` hoÃ n toÃ n má»›i**; workspace chÃ­nh tuyá»‡t Ä‘á»‘i khÃ´ng bá»‹ ghi lÃ¹i vÃ  chá»‰ thay Ä‘á»•i tiáº¿n vá» phÃ­a trÆ°á»›c qua publication CAS.
+   - Branch má»›i nháº­n `capability_epoch` má»›i, `budget_escrow` Ä‘á»™c láº­p, vÃ´ hiá»‡u hÃ³a User approvals cÅ©, vÃ  Ä‘Ã¡nh dáº¥u toÃ n bá»™ external side-effect trÆ°á»›c fork point lÃ  `NON_REVERSIBLE_ANCESTOR` (chá»‰ xá»­ lÃ½ báº±ng compensation).
+   - Táº¡i má»™t thá»i Ä‘iá»ƒm chá»‰ cÃ³ 1 branch `ACTIVE`; cÃ¡c branch khÃ¡c lÃ  `ARCHIVED | CANDIDATE`.
+
+---
+
+### 5.4 Language-Aware Fuzzy Patch Codec (Há»c tá»« Aider âž” M6 `tool_manager` & M7 `runtime_governance`)
+1. **PhÃ¢n Quyá»n RÃµ RÃ ng M1 - M6 - M7:**
+   - M3/M6 quyáº¿t Ä‘á»‹nh `EditProtocol` (`SEARCH_REPLACE_BLOCK`, `UNIFIED_DIFF`, `WHOLE_FILE`); M1 chá»‰ serialize/negotiate theo Ä‘Ãºng protocol Ä‘Ã³.
+   - M6 chá»‰ parse LLM output thÃ nh `PatchIntent` (pure data structures); M7 `transaction` phá»¥ trÃ¡ch write gate, CAS vÃ  apply patch vÃ o `BranchShadowWorkspace` do M7 `isolation` materialize.
+2. **`LanguageEditPolicy` Kháº¯t Khe:**
+   - Cáº¥m hoÃ n toÃ n fuzzy whitespace/indentation repair Ä‘á»‘i vá»›i cÃ¡c ngÃ´n ngá»¯ nháº¡y cáº£m khoáº£ng tráº¯ng (`Python`, `YAML`, `Makefile`, `Nim`) trá»« khi cÃ³ AST re-verification xÃ¡c nháº­n block structure khÃ´ng Ä‘á»•i.
+   - File nhá»‹ phÃ¢n, minified, hoáº·c generated: Cáº¥m LLM whole-file máº·c Ä‘á»‹nh. File generated báº¯t buá»™c sá»­a source rá»“i regenerate; binary/unknown báº¯t buá»™c dÃ¹ng specialized byte-tool hoáº·c `ASK_USER`.
+3. **Thang Báº­c Fuzzy Fail-Closed:**
+   - Chá»‰ auto-apply khi cÃ³ DUY NHáº¤T 1 candidate thá»a mÃ£n ngÆ°á»¡ng chiá»u dÃ i/entropy vÃ  khÃ´ng cáº¯t qua symbol boundary. CÃ³ 0 hoáº·c $\ge 2$ candidates âž” Tráº£ `AMBIGUOUS_PATCH` Ä‘á»ƒ M3 replan.
+   - Sinh `PatchApplicationReceipt` ghi rÃµ normalization Ä‘Ã£ dÃ¹ng, candidate span vÃ  post-apply AST verification.
+
+---
+
+### 5.5 Two-Phase Sealed Verification Gate & `CandidateChangeManifest` (Há»c tá»« Devin / SWE-bench âž” M7 `runtime_governance`)
+1. **Nguá»“n Sá»± Tháº­t Duy Nháº¥t: `CandidateChangeManifest` (Thay Tháº¿ Git Diff):**
+   - Git diff chá»‰ lÃ  view trÃ¬nh bÃ y cho Human/LLM; **`CandidateChangeManifest` do M7 `transaction` tÃ­nh toÃ¡n trá»±c tiáº¿p** giá»¯a `base_snapshot_digest` vÃ  `BranchShadowWorkspace` má»›i lÃ  Nguá»“n Sá»± tháº­t Duy nháº¥t cho verification vÃ  publication.
+   - Bao phá»§ toÃ n diá»‡n: `(operation, tracked/untracked, content_digest, file_type, executable_bit, ACL_metadata, symlink_target, submodule_gitlink, generated_provenance)`.
+   - Äá»‘i chiáº¿u tá»©c thÃ¬ vá»›i `AuthorizedWriteSet`; phÃ¡t hiá»‡n file láº¡ ngoÃ i táº­p cho phÃ©p âž” Há»§y candidate ngay láº­p tá»©c (`POLICY_VIOLATION_ABORTED`).
+2. **Quy TrÃ¬nh Chá»n Impacted-Test Hai Pha (Two-Phase Impact Selection):**
+   - *Pha 1 (`PreImplementationTestPlan`):* Sinh tá»« intended write set vÃ  khÃ³a (sealed) trÆ°á»›c khi sá»­a code.
+   - *Pha 2 (`PostImplementationImpactPlan`):* Sinh tá»« `CandidateChangeManifest.digest` tháº­t sá»± sau khi sá»­a.
+   - *Táº­p Test Cuá»‘i:* $\text{FinalTests} = \text{ReproductionTest} \cup \text{PrePlanSubset} \cup \text{PostImpactSubset} \cup \text{MandatorySecuritySmokeTests}$.
+   - Selector manifest Ä‘Æ°á»£c M7 xÃ¡c minh hoáº·c outer harness kÃ½ attestation; Agent cáº¥m tá»± kÃ½.
+3. **CÆ¡ Cháº¿ Fail-Closed Sang Full Test Suite:**
+   - Báº¯t buá»™c cháº¡y 100% Full Test Suite khi: graph coverage < 80%, cÃ³ `unknown_dynamic_impact`, cháº¡m vÃ o dependencies/build configs (`pyproject.toml`, lockfiles), hoáº·c cháº¡m vÃ o `HighRiskWorkspaceSinks`.
+4. **Structured Reproduction & Regression Enforcement:**
+   - `ReproductionSpec` khÃ³a báº±ng CAS: test script ghim báº¥t biáº¿n, baseline pháº£i váº¥p pháº£i Ä‘Ãºng `expected_failure_signature` cÃ³ cáº¥u trÃºc (cháº·n lá»—i infrastructure/timeout).
+   - Ãp dá»¥ng chÃ­nh sÃ¡ch `NO_NEW_REGRESSIONS` so vá»›i baseline; flaky test báº¯t buá»™c pháº£i cÃ³ Operator Waiver cÃ³ tháº©m quyá»n vÃ  expiry.
