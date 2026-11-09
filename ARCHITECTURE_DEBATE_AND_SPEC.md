@@ -629,3 +629,100 @@ Nháº±m nÃ¢ng cao nÄƒng lá»±c giáº£i quyáº¿t tÃ¡c vá»¥ ká»
 4. **Structured Reproduction & Regression Enforcement:**
    - `ReproductionSpec` khÃ³a báº±ng CAS: test script ghim báº¥t biáº¿n, baseline pháº£i váº¥p pháº£i Ä‘Ãºng `expected_failure_signature` cÃ³ cáº¥u trÃºc (cháº·n lá»—i infrastructure/timeout).
    - Ãp dá»¥ng chÃ­nh sÃ¡ch `NO_NEW_REGRESSIONS` so vá»›i baseline; flaky test báº¯t buá»™c pháº£i cÃ³ Operator Waiver cÃ³ tháº©m quyá»n vÃ  expiry.
+
+---
+
+## 6. Hấp thụ & Bản địa hóa Các Tính năng Vận hành Nâng cao & Human-in-the-Loop Resilience (Phase 7 Consensus)
+
+Nhằm tiếp tục trang bị cho hệ thống các năng lực thực chiến tinh nhuệ nhất từ các AI Agent tiên tiến (SWE-agent, OpenHands, Windsurf/Cascade, Cline/Roo Code, Devin, Google DeepMind CaMeL), 5 tính năng vận hành nâng cao đã đạt đồng thuận tuyệt đối giữa Antigravity (Builder) và Codex CLI (Reviewer) tại Round 4/4 và tích hợp chặt chẽ vào đúng 7 Module Lõi (`src/agent_core/`):
+
+### 6.1 Specialized ACI Windowed Viewport Navigation & Bounded Replay Reconstruction (Học từ SWE-agent & OpenHands ➔ M6 `tool_manager`, M7 `runtime_governance`, M4 `context_manager`)
+1. **Phân Định Trách Nhiệm Thực Thi & AST Tooling:**
+   - AST parser và công cụ điều hướng mã nguồn không nằm trực tiếp trong M7 mà thuộc `extensions/external_coding_tools`.
+   - M6 (`tool_manager`) định nghĩa pure-data `ToolPlanAndCodecPort`: `FileViewPlan(file_path, line_start, line_count)` và `SymbolLocatePlan(file_path, symbol_name, depth)`.
+   - M7 (`runtime_governance`) pin immutable workspace snapshot, thực thi reader/AST extension trong sandbox hermetic, quét DLP và trả dữ liệu thô an toàn cho M6 giải mã thành `SymbolLocationArtifact`.
+2. **Authoritative Storage & Ephemeral Viewport Projection:**
+   - Mọi raw output sau DLP được M7 commit thành `AuthoritativeObservationArtifact` gắn chặt với:
+     `(workspace_snapshot_digest, file_object_identity, content_digest, normalized_line_map_digest, parser_toolchain_digest, requested_range, returned_range, raw_artifact_digest, execution_receipt_id)`.
+   - M3 append sự kiện `ObservationCommitted` vào `SessionControlLog`.
+   - M4 (`context_manager`) duy trì `ActiveViewportCache` như một **ephemeral projection/cache** phục vụ context assembly (cập nhật hoặc thay thế viewport trong prompt để tối ưu token).
+3. **Cam Kết Tái Hiện Lịch Sử (Replay Guarantee):**
+   - Hệ thống cam kết: *Có thể dựng lại tất định context projection và lịch sử quan sát trong phạm vi artifact còn được retention policy bảo tồn*.
+   - Replay Engine luôn phục dựng trạng thái từ `SessionControlLog` + `AuthoritativeObservationArtifact`, tuyệt đối không phụ thuộc vào trạng thái cache tạm thời.
+   - Khi dữ liệu bị xóa bởi Crypto-Erasure, phiên chuyển sang `HALTED_CONTENT_ERASED`.
+   - `WindowScroll` là một context-selection event tất định dựa trên viewport gốc đã ghi log. Xóa bỏ cam kết "tiết kiệm 70% cố định", định vị token savings là empirical benchmark target.
+
+---
+
+### 6.2 Multi-Tier Dynamic Model Stratification & Failure-Isolated Reasoning (Học từ Cline/Roo Code & Cursor ➔ M1 `llm_manager` & M3 `orchestrator`)
+1. **Phân Công Quản Lý Gateway & Budget:**
+   - M3 (`orchestrator`): Quản lý `SessionBudgetLedger` (budget escrow) và gắn nhãn `ModelRoleRequirement` (`FAST_EXPLORER`, `FRONTIER_REASONER`, `SEALED_VALIDATOR`) cho từng node trong `ExecutionDependencyDAG`.
+   - M1 (`llm_manager`): Sở hữu Multi-Provider LLM Gateway, bảng định tuyến endpoint, circuit breaker, rate limit, provider retry và call-level token/cost accounting.
+2. **Quy Tắc Xử Lý Outage & Checkpoint Không CoT:**
+   - Cấm hot-swap âm thầm làm suy giảm năng lực. Fallback tự động chỉ được phép giữa các model có CÙNG `capability_profile` đã được đăng ký và benchmark trước.
+   - Chuỗi reasoning dài bắt buộc phải phân đoạn thành các checkpoint có cấu trúc lưu vào `SessionControlLog` với các typed fields: `(assumptions, decisions_and_concise_rationale, unresolved_questions, cited_observations, constraints_and_next_action, change_plan_artifact)`.
+   - **Tuyệt đối KHÔNG lưu private chain-of-thought (hidden reasoning trace)** vào durable checkpoints.
+   - Đổi tên đề xuất sửa đổi từ model thành **`ChangePlanArtifact`** (hoặc `ProposedChangeIntent`); tên `CandidateChangeManifest` dành riêng cho nguồn sự thật do M7 `transaction subsystem` tính toán sau khi áp dụng patch.
+   - Khi frontier model bị gián đoạn sau checkpoint, M3 khởi tạo invocation mới chỉ trên model có CÙNG hoặc CAO HƠN `capability_profile`. Nếu không có model đạt chuẩn ➔ Chuyển `MODEL_CAPABILITY_UNAVAILABLE` / `SUSPENDED_WAITING_USER_ESCALATION`. Cấm âm thầm hạ tier ở các bước Critical (Architecture synthesis, security validation, publication decision).
+3. **Đặc Tả Độc Lập Cho `SEALED_VALIDATOR`:**
+   - Mục tiêu: Giảm thiểu tối đa anchoring bias (không overclaim triệt tiêu 100%).
+   - Bắt buộc chạy trên session/invocation độc lập, tuyệt đối không nhận implementation rationale.
+   - Tập đầu vào tối thiểu: `(Authoritative requirements/acceptance criteria, Applicable policy invariants, Base snapshot identity, CandidateChangeManifest do M7 tính, Pre/post implementation test plans, Test receipts & reproduction evidence, Unknown-impact/coverage declarations)`.
+
+---
+
+### 6.3 Cooperative Mid-Execution Steerability & Preemption State Machine (Học từ Windsurf/Cascade & Devin ➔ M3 `orchestrator` & M7 `runtime_governance`)
+1. **Tích Hợp Trạng Thái Preemption:**
+   - Kế thừa trực tiếp vòng đời Preemption Phase 5:
+     `REQUESTED → ACKNOWLEDGED → QUIESCING → QUIESCED | CANNOT_CANCEL | OUTCOME_UNKNOWN`.
+2. **Lưỡng Phân Giữa Safe Yield Point và Containment/Halt Point:**
+   - **Safe Yield Point (Điểm rẽ nhánh an toàn):** Chỉ đạt được khi đồng thời:
+     1. Không có tool invocation, outbox message, hoặc status probe chưa resolve.
+     2. Không có WAL hoặc recovery dở dang tại M7 `transaction subsystem`.
+     3. Không có callback đã đăng ký có thể phát sinh side-effect.
+     4. Không giữ resource lease hoặc exclusive lock qua thời gian chờ steering.
+     5. **Có Terminal, Non-Ambiguous Receipt từ M7**.
+     Chỉ tại Safe Yield Point, M3 mới được chuyển sang `SUSPENDED_STEERING`, thực hiện logical pruning và dispatch nhánh mới.
+   - **Containment / Halt Point (Điểm đóng băng/khoanh vùng):** Khi gặp `OUTCOME_UNKNOWN` hoặc authoritative indeterminate state từ external side-effects (như build script bị hủy giữa chừng) ➔ M3 **CẤM** dispatch nhánh mới; chỉ được phép thực hiện reconciliation, probe, compensation hoặc `ESCALATE_TO_USER`.
+3. **Bảo Tồn Lịch Sử DAG ("Logical Pruning Only"):**
+   - Tuyệt đối CẤM xóa bỏ vật lý bất kỳ node nào trong `ExecutionDependencyDAG`.
+   - Cắt tỉa nhánh do can thiệp là **Logical Pruning** thông qua việc append sự kiện `SUPERSEDED | CANCELLED_BEFORE_DISPATCH`.
+   - Sinh `SteeringInterventionReceipt` khóa chặt với: `(directive_id, target_execution_epoch, target_step_id, applied_at_log_seq, superseded_node_ids, retained_receipt_ids)`.
+
+---
+
+### 6.4 Versioned Anti-Thrashing Engine & Negative Hypothesis Ledger (Học từ Devin & SWE-agent ➔ M3 `orchestrator` & M4 `context_manager`)
+1. **Quản Lý Bền Vững & Dữ Liệu Tương Đồng Typed:**
+   - `NegativeHypothesisLedger` là durable session-control artifact do M3 quản lý. M4 chỉ truy vấn và trình bày các entry liên quan vào context.
+   - M3 không tự parse AST mà nhận `PatchSimilarityArtifact` do luồng M6 ➔ M7 ➔ `extensions/external_coding_tools` sinh ra.
+   - `PatchSimilarityArtifact` được khóa chặt với: `(snapshot_digest, parser_digest, canonicalization_version, metric_policy_version)`.
+2. **Chính Sách Phân Tầng Phiên Bản Hóa (Versioned Tiered Policy):**
+   - Giới hạn số lần lặp `near_cycle_limit` thuộc versioned policy (mặc định là 3, có thể cấu hình theo project/profile).
+   - Ngưỡng similarity được định cấu hình theo ngôn ngữ và toolchain.
+   - **Phân Tầng Đánh Giá:**
+     * *Exact Cycle:* Cùng `failure_signature`, cùng canonical `patch_ast_digest`, zero evidence novelty ➔ `REJECT_DUPLICATE_HYPOTHESIS`.
+     * *Near Cycle:* Tính toán vector đặc trưng đa chiều (Weighted Jaccard symbol, weighted tree-edit distance trên canonical AST edit operations, control/data-flow impact overlap, failure-signature equivalence) với zero novelty ➔ Yêu cầu `FORCE_BRANCHING`.
+     * *Sửa Đổi Nhỏ Có Chủ Đích:* Chỉ hợp lệ nếu Agent khai báo rõ ràng `delta_hypothesis` và biến số cụ thể được thay đổi kèm dự đoán kết quả khác biệt có cơ sở.
+     * *Vượt Ngưỡng:* Đạt $\ge \text{near\_cycle\_limit}$ lần lặp near-cycle liên tiếp ➔ `ESCALATE_TO_USER`.
+   - Ledger entry lưu toàn bộ threshold/result breakdown để audit được quyết định can thiệp. Xác định rõ ràng similarity là heuristic-deterministic.
+
+---
+
+### 6.5 Authenticated Provenance & Collision-Resistant Untrusted-Data Framing (Học từ DeepMind CaMeL & Enterprise Security ➔ M4 `context_manager`, M7 `runtime_governance`, M2 `prompt_manager`)
+1. **Xác Lập Ranh Giới Bảo Mật Thực Sự:**
+   - Nonce ngẫu nhiên trong prompt KHÔNG PHẢI là security boundary và không ngăn được injection ngữ nghĩa (Base64, ROT13, homoglyph). Nonce chỉ đóng vai trò phân tách khung dữ liệu chống va chạm cú pháp (collision-resistant framing).
+   - Ranh giới bảo mật thực tế nằm ở **M7 Capability Gate và Sink-Aware Policy nằm ngoài LLM**.
+2. **DLP-Before-Storage & Quản Lý Secret trong Artifact:**
+   - Dữ liệu raw artifact CHỈ được phép lưu trữ byte-for-byte sau khi đã **vượt qua M7 Content-Safety & DLP Gate**.
+   - Nếu M7 DLP phát hiện secret:
+     * Mặc định: Lập tức thực hiện `Discard + Best-Effort Zeroization` đối với raw secret-bearing payload trong bộ nhớ.
+     * Chỉ lưu trữ **`RedactedObservationArtifact`** (đã được scrub/redact an toàn) kèm theo `StructuralTombstoneReceipt`.
+     * **Tuyệt đối không lưu SHA-256 thuần** của raw secret-bearing payload để chống tấn công verification oracle; bắt buộc sử dụng **Keyed Commitment** (`HMAC(payload, session_commitment_key)`) với `session_commitment_key` do M7 quản lý bảo mật.
+     * `EncryptedRawQuarantineArtifact`: CHỈ được kích hoạt khi có chính sách pháp y tường minh (`ExplicitForensicPolicy = ENABLED`), được mã hóa bằng khóa riêng biệt, phân quyền ACL tối thiểu, có TTL nghiêm ngặt và audit log truy cập riêng biệt.
+3. **Bảo Toàn Nguyên Vẹn Bằng Chứng Hậu DLP:**
+   - Dữ liệu đã vượt qua DLP được lưu nguyên gốc byte-for-byte kèm SHA-256 digest; tuyệt đối không strip hoặc escape làm biến dạng dữ liệu thô.
+   - Khung phân tách dữ liệu untrusted trong context window sử dụng typed/length-prefixed serialization hoặc provider-native structured fields; presentation encoding áp dụng canonical escaping.
+   - Bản sao Unicode-normalized (NFC) chỉ dùng riêng cho scanning/detection của M7 DLP, không thay thế authoritative payload.
+   - Nguồn gốc User Directive được xác thực qua authenticated session transport / origin proof.
+   - **Bất Biến Lan Truyền Taint:** Mọi tool intent sinh ra từ context có chứa taint bắt buộc phải kế thừa `context_influence_set`. M7 kiểm tra quyền dựa trên capability token và sink policy bất kể LLM có bị thuyết phục bởi prompt injection hay không.
+   - Dữ liệu untrusted tuyệt đối KHÔNG ĐƯỢC PHÉP nâng quyền thành Pinned Invariants nếu không có sự kiện phê duyệt tường minh từ Human Operator.
